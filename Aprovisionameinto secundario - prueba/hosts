@@ -1,0 +1,9 @@
+[kubernetes]
+master ansible_host=51.142.161.181 ansible_user=administrador
+worker ansible_host=51.142.163.4 ansible_user=administrador
+
+[nfs]
+nfs ansible_host=51.142.161.173 ansible_user=administrador
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3

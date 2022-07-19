@@ -1,0 +1,83 @@
+#Crear namespace pagina
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pagina
+
+---
+#Crear volumen persistente en nfs
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pagina-nfspv
+spec:
+  storageClassName: storage-nfs
+  capacity:
+    storage: 10Gi #Tamaño del volumen
+  accessModes:
+    - ReadWriteOnce
+  nfs:
+    server: 10.0.2.5 #Ip del servidor nfs
+    path: "/home/pagina" #Ruta donde se guardara información en el servidor nfs
+  
+
+---
+
+#Crear volumen persistente PersistentVolumeClaim de tipo nfs que se mapea con el anterior nfs
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pagina-nfspv
+spec:
+  storageClassName: storage-nfs
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---      
+#crear deployment, pod, etc.
+apiVersion: apps/v1
+kind: Deployment #Creando deployment
+metadata:
+  name: pagina-deployment
+  namespace: pagina
+spec:
+  replicas: 1 #Creando pod
+  selector:
+    matchLabels:
+      app: pagina
+  template:
+    metadata:
+      labels:
+        app: pagina
+    spec:
+      containers: #Creando contenedor
+      - name: pagina
+        image: 'wordpress' #llamando imagen oficial de wordpress de docker hub
+        ports:
+        - containerPort: 80
+        volumeMounts:
+          - name: volpagina #volumen del contenedor
+            mountPath: "/var/www/html" #Mapeo del contenedor con el volumen
+      volumes:
+      - name: volpagina
+        persistentVolumeClaim:
+          claimName: paginapvc001
+
+---
+#Poner en funcionamiento el servicio del puerto 80 de la aplicación al puerto 32350 del clúster kubernetes de tipo loadbalancer
+apiVersion: v1
+kind: Service
+metadata:
+  name: pagina-service
+  namespace: pagina
+spec:
+  type: LoadBalancer
+  selector:
+    app: pagina
+  ports:
+    - port: 80 #puerto interno del contenedor
+      targetPort: 80
+      nodePort: 32350 #puerto para que el clúster kubernetes lo ejecute publicamente

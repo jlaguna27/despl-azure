@@ -1,0 +1,86 @@
+#Crear namespace glpi
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: glpi
+
+---
+#Crear volumen local alojado en la maquina
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv001
+  namespace: glpi
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "volumeglpi"
+
+
+---
+#Crear volumen persistente PersistentVolumeClaim de tipo manual que se mapea con el anterior alojado en la maquina
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pvc001
+  namespace: glpi
+spec:
+  storageClassName: manual
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+#crear deployment, pod, etc.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: glpi-deployment #creando deployment
+  namespace: glpi
+spec:
+  replicas: 1 #Creando pod
+  selector:
+    matchLabels:
+      app: glpi
+  template:
+    metadata:
+      labels:
+        app: glpi
+    spec:
+      containers: #creando contenedor
+      - name: glpi
+        image: 'diouxx/glpi' #llamando imagen de docker hub
+        ports:
+        - containerPort: 80 #Puerto por defecto del contenedor
+        volumeMounts:
+          - name: volglpi #volumen del contenedor
+            mountPath: "/var/www/html/glpi" #Mapeo del contenedor con el volumen
+      volumes:
+      - name: volglpi
+        persistentVolumeClaim:
+          claimName: pvc001
+
+---
+#Poner en funcionamiento el servicio del puerto 80 de la aplicación al puerto 31335 del clúster kubernetes de tipo loadbalancer
+apiVersion: v1
+kind: Service
+metadata:
+  name: glpi-service
+  namespace: glpi
+spec:
+  type: LoadBalancer
+  selector:
+    app: glpi
+  ports:
+    - port: 80 #puerto interno del contenedor
+      targetPort: 80
+      nodePort: 31335 #puerto para que el clúster kubernetes lo ejecute publicamente
